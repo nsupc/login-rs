@@ -78,7 +78,7 @@ async fn ratelimiter(limit: &usize, semaphore: &Semaphore, request_times: &mut V
 async fn request(client: &Client, user: &str, nation: &str, password: &str) -> Result<reqwest::Response, reqwest::Error> {
     let res = client
         .get(format!("https://www.nationstates.net/cgi-bin/api.cgi?nation={}&q=ping", nation))
-        .header("User-Agent", user)
+        .header("User-Agent", format!("UPC's Login-rs, used by {}", user))
         .header("X-Password", password)
         .send()
         .await?;
