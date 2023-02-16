@@ -6,7 +6,8 @@ use std::time::{Instant, Duration};
 use std::collections::VecDeque;
 use tokio::sync::Semaphore;
 
-const INTERVAL: Duration = Duration::from_secs(30);
+const PERIOD: u64 = 30;
+const INTERVAL: Duration = Duration::from_secs(PERIOD);
 
 #[derive(Debug, StructOpt)]
 #[structopt(name="login")]
@@ -55,14 +56,27 @@ fn open_file(path: &PathBuf) -> Result<String, io::Error> {
 async fn ratelimiter(limit: &usize, semaphore: &Semaphore, request_times: &mut VecDeque<Instant>, nation: &str, password: &str, client: &Client, user: &str) {
     let _permit = semaphore.acquire().await;
 
+    // millis is the approximate amount of time to wait between requests in order to 
+    // have continuous requests. before this was added, the program would saturate
+    // the ratelimit as quickly as possible and then wait 30 seconds from the first
+    // request to reset the bucket. this is legal but spacing out requests is preferred
+    let millis = (1000 as f64 * (PERIOD as f64 / *limit as f64)) as u64;
+    let spacer = Duration::from_millis(millis);
+    tokio::time::sleep(spacer).await;
+
+    // this prevents us from exceeding the ratelimit of our current bucket. it is
+    // probably not necessary with the addition of the spacer above, but is a good
+    // sanity check just in case so it will be left in.
     while &request_times.len() >= limit {
         let elapsed = Instant::now().duration_since(request_times[0]);
+
         if elapsed >= INTERVAL {
             request_times.pop_front();
         } else {
             tokio::time::sleep(INTERVAL - elapsed).await;
         }
     }
+
     request_times.push_back(Instant::now());
 
     match request(client, user, nation, password).await {
@@ -97,7 +111,11 @@ async fn main() {
     }
 
     // the maximum number of requests to ns that the script will make in 30 seconds
-    let limit: usize = if opt.speed > 45 { 45 } else { opt.speed };
+    let limit: usize = match opt.speed {
+        0 => 1,
+        1..=45 => opt.speed,
+        _ => 30
+    };
 
     // trying to open the filepath provided for nations, exits if the path cannot be found
     let input: String = match open_file(&opt.path) {
