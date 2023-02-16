@@ -5,7 +5,7 @@ A very basic login script for maintaining nations on [NationStates](https://www.
 - Keeps nations alive
 - Doesn't get you API banned*
 ## Instructions
-1. Download the binary for your operating system.
+1. Download the latest [binary](https://github.com/nsupc/login-rs/releases) for your operating system.
 2. Create a file called "nations.txt" in the same folder as the application, and add your nations and their passwords to the file in the following format:
     ```
        Nation 1,Password 1
